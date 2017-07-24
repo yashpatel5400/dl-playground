@@ -8,5 +8,8 @@ Here are a list of small "toy projects" I'll be doing in this playground:
 - Automatic hand writing generator
 - Machine translation
 - Game playing (simple)
-- Mar i/o replica
 - Train a word2vec classifier
+- MarI/O replica
+- DeepBlue replica w/ DNN
+- AlphaGo replica
+- Punctuation predictor
