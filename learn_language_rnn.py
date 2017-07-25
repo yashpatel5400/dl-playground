@@ -52,16 +52,22 @@ model.fit(trainX, trainY,
 	epochs=5, verbose=1, batch_size=100, callbacks=callbacks_list)
 
 # ----------------- generative stage --------------------------- #
+fn = "weights-improvement-02-2.3004.hdf5"
+model.load_weights(fn)
+model.compile(loss="categorical_crossentropy",
+	optimizer="adam",
+	metrics=["accuracy"])
+
 start = np.random.randint(0, len(trainX) - 1)
 seed = trainX[start]
 
 num_predict = 1000
-seq = seed
+seq = [num_to_char[int(num_chars *char[0])] for char in seed]
 for _ in range(num_predict):
-	next_probs = model.predict(seed)
+	next_probs = model.predict(seed.reshape(1, 100, 1))
 	next_char_ind = np.argmax(next_probs)
 	next_char = num_to_char[next_char_ind]
-	seed = seed[1:] + [next_char]
+	seed = np.append(seed[1:], [next_char_ind/float(num_chars)])
 	seq.append(next_char)
 
 print("".join(seq))
