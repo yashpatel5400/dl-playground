@@ -34,11 +34,14 @@ num_chars = len(char_to_num.keys())
 trainX = np.reshape(trainX, (trainX.shape[0], trainX.shape[1], 1))/float(num_chars)
 trainY = np_utils.to_categorical(trainY)
 
+temp = 12.5
+
 model = Sequential()
 model.add(LSTM(256, input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
 model.add(Dropout(0.2))
 model.add(LSTM(256))
 model.add(Dropout(0.2))
+model.add(Lambda(lambda x : x / temp))
 model.add(Dense(66, activation="softmax"))
 model.compile(loss="categorical_crossentropy",
 	optimizer="adam",

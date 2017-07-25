@@ -59,15 +59,26 @@ print(times)
 # deep learning version
 
 from keras.models import Sequential
-from keras.layers import Dense, Convolution
+from keras.layers import Dense
+from keras.utils import np_utils
+import gym
 
 env = gym.make("CartPole-v0")
+observation = env.reset()
 
-# create network that optimizes parameters given the previously predicted probabilities
-# from softmaxes and the current observation. trying to minimize the multiplied "error"
-# of the action and the corresponding probability, since, if there is an action w/ high
-# prob that is not taken, the 
+model = Sequential()
+model.add(Dense(2, input_shape=(4)))
+model.add(Dense(1, activation="softmax"))
+model.compile(
+	loss="mean_squared_error",
+	optimizer="adam")
 
-# record all the transitions made by prediction of the policy gradient
+value_model = Sequential()
+value_model.add(Dense(10, input_shape=(4)))
+value_model.add(Dense(1))
+value_model.compile(
+	loss="mean_squared_error",
+	optimizer="adam")
 
-# 
+for _ in xrange(1000):
+	pass
