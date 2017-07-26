@@ -58,11 +58,11 @@ print(times)
 
 # deep learning version
 
+import gym
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.utils import np_utils
-import gym
 from keras.models import load_model
 
 env = gym.make("CartPole-v0")

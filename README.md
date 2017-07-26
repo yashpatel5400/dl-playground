@@ -13,3 +13,11 @@ Here are a list of small "toy projects" I'll be doing in this playground:
 - DeepBlue replica w/ DNN
 - AlphaGo replica
 - Punctuation predictor
+
+OpenAI Environments
+- Cartpole
+- Mountain Car
+- Walking
+- Minecraft
+- Universe 
+- Self-driving GTA

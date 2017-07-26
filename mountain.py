@@ -1,3 +1,0 @@
-"""
-mountain car
-"""
