@@ -7,38 +7,38 @@ import numpy as np
 import random
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
+from keras.optimizers import Adam
 
 from collections import deque
 
 class DQN:
-	def __init__(self, env, gamma, epsilon):
+	def __init__(self, env):
 		self.env     = env
-		self.gamma   = gamma
-		self.epsilon = epsilon
 		self.memory  = deque(maxlen=2000)
+		
+		self.gamma = 0.95
+		self.epsilon = 1.0
+		self.epsilon_min = 0.01
+		self.epsilon_decay = 0.995
+		self.learning_rate = 0.001
+
 		self.model   = self.create_model()
-	
+
 	def create_model(self):
 		model   = Sequential()
 		state_shape  = self.env.observation_space.shape
-
-		model.add(Dense(24, input_shape=state_shape, activation="relu"))
-		model.add(Dropout(0.8))
-
+		model.add(Dense(24, input_dim=state_shape[0], activation="relu"))
 		model.add(Dense(48, activation="relu"))
-		model.add(Dropout(0.8))
-
 		model.add(Dense(24, activation="relu"))
-		model.add(Dropout(0.8))
-
 		model.add(Dense(self.env.action_space.n))
 		model.compile(loss="mean_squared_error",
-			optimizer="adam")
+			optimizer=Adam(lr=self.learning_rate))
 		return model
 
-	def predict(self, state):
-		EPSILON_DECAY = .99
-		self.epsilon = EPSILON_DECAY * self.epsilon
+	def act(self, state):
+		self.epsilon *= self.epsilon_decay
+		self.epsilon = max(self.epsilon_min, self.epsilon)
+
 		if np.random.random() < self.epsilon:
 			return self.env.action_space.sample()
 		return np.argmax(self.model.predict(state)[0])
@@ -46,15 +46,12 @@ class DQN:
 	def remember(self, state, action, reward, new_state, done):
 		self.memory.append([state, action, reward, new_state, done])
 
-	def retrain(self):
+	def replay(self):
 		batch_size = 32
 		if len(self.memory) < batch_size:
 			return
 
 		samples = random.sample(self.memory, batch_size)
-
-		states  = []
-		targets = []
 		for sample in samples:
 			state, action, reward, new_state, done = sample
 			target = self.model.predict(state)
@@ -63,11 +60,6 @@ class DQN:
 			else:
 				Q_future = max(self.model.predict(new_state)[0])
 				target[0][action] = reward + Q_future * gamma
-		
-			states.append(state)
-			targets.append(target)
-
-		for state, target in zip(states, targets):
 			self.model.fit(state, target, epochs=1, verbose=0)
 
 env     = gym.make("CartPole-v0")
@@ -78,16 +70,16 @@ trials  = 1000
 trial_len = 500
 
 min_steps = 199
-dqn_agent = DQN(env=env, gamma=gamma, epsilon=epsilon)
+dqn_agent = DQN(env=env)
 for trial in range(trials):
 	cur_state = env.reset().reshape(1,4)
 	for step in range(trial_len):
-		action = dqn_agent.predict(cur_state)
+		action = dqn_agent.act(cur_state)
 		new_state, reward, done, _ = env.step(action)
 
 		new_state = new_state.reshape(1,4)		
 		dqn_agent.remember(cur_state, action, reward, new_state, done)
-		dqn_agent.retrain()
+		dqn_agent.replay()
 		cur_state = new_state
 		if done:
 			break
