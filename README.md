@@ -21,3 +21,7 @@ OpenAI Environments
 - Minecraft
 - Universe 
 - Self-driving GTA
+
+- Image captioning
+- Image question answering
+- GANs
