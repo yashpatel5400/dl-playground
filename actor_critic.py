@@ -28,7 +28,7 @@ def create_critic_model(env):
 	action_input = Input(shape=env.action_space.shape)
 	action_h1    = Dense(128)(action_input)
 	#
-	merged = Add()([state_h2, action_h1])
+	merged    = Add()([state_h2, action_h1])
 	merged_h1 = Dense(128, activation='relu')(merged)
 	final = Dense(1, activation='relu')(merged_h1)
 	model = Model(input=[state_input,action_input], output=final)
@@ -48,17 +48,17 @@ for _ in range(num_trials):
 	cur_state = env.reset()
 	action = env.action_space.sample()
 	for step in range(trial_len):
-		cur_state = cur_state.reshape(1, env.observation_space.shape[0])
+		cur_state = cur_state.reshape((1, env.observation_space.shape[0]))
 		action = actor_model.predict(cur_state)
-		action = action.reshape(1, env.action_space.shape[0])
+		action = action.reshape((1, env.action_space.shape[0]))
 
 		new_state, reward, done, _ = env.step(action)
-		new_state = new_state.reshape(1, env.observation_space.shape[0])
+		new_state = new_state.reshape((1, env.observation_space.shape[0]))
 
 		# reward associated with the original state is the same "Q learning formula"
 		# as before, namely the current reward and the discounted future reward
 		Q_prime = reward + critic_model.predict([cur_state,action])[0][0]
-		critic_model.fit(cur_state, Q_prime)
+		critic_model.fit([cur_state,action], Q_prime, verbose=0)
 		cur_state = new_state
 		if done:
 			break
