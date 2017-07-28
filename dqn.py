@@ -86,5 +86,4 @@ for trial in range(trials):
 	if step == min_steps:
 		break
 	print("Successfully ran {} steps".format(step))
-
 print("Completed in {} trials".format(trial))

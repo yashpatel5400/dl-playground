@@ -14,6 +14,8 @@ Here are a list of small "toy projects" I'll be doing in this playground:
 - AlphaGo replica
 - Punctuation predictor
 
+Do a couple of these in TF as well
+
 OpenAI Environments
 - Cartpole
 - Mountain Car
