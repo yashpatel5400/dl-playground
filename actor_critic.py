@@ -6,7 +6,7 @@ import gym
 import numpy as np 
 from keras.models import Sequential, Model
 from keras.layers import Dense, Dropout, Input
-from keras.layers.merge import Add
+from keras.layers.merge import Add, Multiply
 from keras.optimizers import Adam
 import keras.backend as K
 
@@ -26,29 +26,30 @@ class ActorCritic:
 		self.tau   = .125
 
 		self.memory = deque(maxlen=2000)
-		self.actor_model = self.create_actor_model()
+		self.actor_state_input, self.actor_model = self.create_actor_model()
 		self.target_actor_model = self.create_actor_model()
 
-		self.critic_model = self.create_critic_model()
-		self.target_critic_model = self.create_critic_model()
+		self.critic_state_input, self.critic_action_input, self.critic_model = self.create_critic_model()
+		_, _, self.target_critic_model = self.create_critic_model()
 
 	def create_actor_model(self):
-		model = Sequential()
-		model.add(Dense(24, input_shape=self.env.observation_space.shape, activation="relu"))
-		model.add(Dense(48, activation="relu"))
-		model.add(Dense(24, activation="relu"))
-		model.add(Dense(self.env.action_space.shape[0]))
+		state_input = Input(shape=(self.env.observation_space.shape[0],))
+		h1 = Dense(24, activation='relu')(state_input)
+		h2 = Dense(48, activation='relu')(h1)
+		h3 = Dense(24, activation='relu')(h2)
+		output = Dense(self.env.action_space.shape[0], activation='relu')(h3)
 		
+		model = Model(input=state_input, output=output)
 		adam  = Adam(lr=0.001)
 		model.compile(loss="mse", optimizer=adam)
-		return model
+		return state_input, model
 
 	def create_critic_model(self):
-		state_input  = Input(shape=self.env.observation_space.shape)
+		state_input = Input(shape=(self.env.observation_space.shape[0],))
 		state_h1 = Dense(24, activation='relu')(state_input)
 		state_h2 = Dense(48)(state_h1)
 		
-		action_input = Input(shape=self.env.action_space.shape)
+		action_input = Input(shape=(self.env.action_space.shape[0],))
 		action_h1    = Dense(48)(action_input)
 		
 		merged    = Add()([state_h2, action_h1])
@@ -58,7 +59,7 @@ class ActorCritic:
 		
 		adam  = Adam(lr=0.001)
 		model.compile(loss="mse", optimizer=adam)
-		return model
+		return state_input, action_input, model
 
 	def remember(self, cur_state, action, reward, new_state, done):
 		self.memory.append([cur_state, action, reward, new_state, done])
@@ -71,25 +72,48 @@ class ActorCritic:
 
 	def _train_actor(self, samples):
 		for sample in samples:
-			state = sample[0]
-			actor_prediction  = self.actor_model.predict(state)
-			critic_prediction = self.critic_model.predict([state, actor_prediction])
-			critic_grad = K.gradients(critic_prediction, actor_prediction)
-			print(critic_grad)
-			# train on those critic gradients
-			actor_grad = K.gradients(actor_prediction, state)
+			critic_gradients = self.critic_model.optimizer.get_gradients(
+				self.critic_model.total_loss, self.critic_action_input.trainable_weights)
 			
-			if None in critic_grad or None in actor_grad:
-				continue
-			
-			critic_grad = np.array(critic_grad)
+			actor_weights = self.actor_model.trainable_weights
+			actor_weights = [weight for weight in weights if \
+				self.actor_model.get_layer(weight.name[:-2]).trainable]
+			actor_gradients = self.actor_model.optimizer.get_gradients(
+				self.actor_model.total_loss, actor_weights)
+
+			# gratiously provided on: https://github.com/fchollet/keras/issues/2226
+			critic_input_tensors = [
+				self.critic_model.inputs[0],         # input data
+				self.critic_model.sample_weights[0], # how much to weight each sample by
+				self.critic_model.targets[0],        # labels
+				K.learning_phase(),      # train or test mode
+			]
+
+			actor_input_tensors = [
+				self.actor_model.inputs[0],        
+				self.actor_model.sample_weights[0],
+				self.actor_model.targets[0],
+				K.learning_phase(), 
+			]
+
+			get_gradients = K.function(inputs=input_tensors, outputs=actor_gradients)
+			inputs = [[[1, 2]], # X
+			          [1], # sample weights
+			          [[1]], # y
+			          0 # learning phase in TEST mode
+			]
+
+			print(get_gradients(inputs))
+			print(K.eval(critic_grad[0]))
+			print(actor_grad)
+			"""critic_grad = np.array(critic_grad)
 			actor_grad  = np.array(actor_grad)
 
-			weighted_actor_grad = actor_grad * critic_grad
+			grads = critic_grad * actor_grad
 			weights = self.actor_model.get_weights()
-			grads = zip(actor_grad, weights)
-			self.actor_model.optimizer.apply_gradients(grads)
-
+			updated_weights = weights + self.learning_rate * grads
+			self.actor_model.set_weights(updated_weights)
+			"""
 	def _train_critic(self, samples):
 		for sample in samples:
 			cur_state, action, reward, new_state, done = sample
