@@ -10,14 +10,17 @@ from keras.layers.merge import Add, Multiply
 from keras.optimizers import Adam
 import keras.backend as K
 
+import tensorflow as tf
+
 import random
 from collections import deque
 
 # determines how to assign values to each state, i.e. takes the state
 # and action (two-input model) and determines the corresponding value
 class ActorCritic:
-	def __init__(self, env):
-		self.env = env
+	def __init__(self, sess, env):
+		self.env  = env
+		self.sess = sess
 
 		self.learning_rate = 0.001
 		self.epsilon = 1.0
@@ -25,15 +28,32 @@ class ActorCritic:
 		self.gamma = .90
 		self.tau   = .125
 
+		# ===================================================================== #
+		#                               Actor Model                             #
+		# ===================================================================== #
+
 		self.memory = deque(maxlen=2000)
 		self.actor_state_input, self.actor_model = self.create_actor_model()
-		self.target_actor_model = self.create_actor_model()
+		_, self.target_actor_model = self.create_actor_model()
 
-		self.critic_state_input, self.critic_action_input, self.critic_model = self.create_critic_model()
+		self.critic_gradient = tf.placeholder(tf.float32,self.env.action_space.shape)
+		self.actor_grads = tf.gradients(self.actor_model.output, self.actor_action_input)
+
+		# ===================================================================== #
+		#                              Critic Model                             #
+		# ===================================================================== #		
+
+		self.critic_state_input, self.critic_action_input, \
+			self.critic_model = self.create_critic_model()
 		_, _, self.target_critic_model = self.create_critic_model()
 
+		self.critic_grads = tf.gradients(self.critic_model.output, self.critic_action_input)
+		
+		# Initialize for later gradient calculations
+		self.sess.run(tf.initialize_all_variables())
+
 	def create_actor_model(self):
-		state_input = Input(shape=(self.env.observation_space.shape[0],))
+		state_input = Input(shape=self.env.observation_space.shape)
 		h1 = Dense(24, activation='relu')(state_input)
 		h2 = Dense(48, activation='relu')(h1)
 		h3 = Dense(24, activation='relu')(h2)
@@ -45,17 +65,17 @@ class ActorCritic:
 		return state_input, model
 
 	def create_critic_model(self):
-		state_input = Input(shape=(self.env.observation_space.shape[0],))
+		state_input = Input(shape=self.env.observation_space.shape)
 		state_h1 = Dense(24, activation='relu')(state_input)
 		state_h2 = Dense(48)(state_h1)
 		
-		action_input = Input(shape=(self.env.action_space.shape[0],))
+		action_input = Input(shape=self.env.action_space.shape)
 		action_h1    = Dense(48)(action_input)
 		
 		merged    = Add()([state_h2, action_h1])
 		merged_h1 = Dense(24, activation='relu')(merged)
-		final = Dense(1, activation='relu')(merged_h1)
-		model = Model(input=[state_input,action_input], output=final)
+		output = Dense(1, activation='relu')(merged_h1)
+		model  = Model(input=[state_input,action_input], output=output)
 		
 		adam  = Adam(lr=0.001)
 		model.compile(loss="mse", optimizer=adam)
@@ -72,48 +92,11 @@ class ActorCritic:
 
 	def _train_actor(self, samples):
 		for sample in samples:
-			critic_gradients = self.critic_model.optimizer.get_gradients(
-				self.critic_model.total_loss, self.critic_action_input.trainable_weights)
-			
-			actor_weights = self.actor_model.trainable_weights
-			actor_weights = [weight for weight in weights if \
-				self.actor_model.get_layer(weight.name[:-2]).trainable]
-			actor_gradients = self.actor_model.optimizer.get_gradients(
-				self.actor_model.total_loss, actor_weights)
-
-			# gratiously provided on: https://github.com/fchollet/keras/issues/2226
-			critic_input_tensors = [
-				self.critic_model.inputs[0],         # input data
-				self.critic_model.sample_weights[0], # how much to weight each sample by
-				self.critic_model.targets[0],        # labels
-				K.learning_phase(),      # train or test mode
-			]
-
-			actor_input_tensors = [
-				self.actor_model.inputs[0],        
-				self.actor_model.sample_weights[0],
-				self.actor_model.targets[0],
-				K.learning_phase(), 
-			]
-
-			get_gradients = K.function(inputs=input_tensors, outputs=actor_gradients)
-			inputs = [[[1, 2]], # X
-			          [1], # sample weights
-			          [[1]], # y
-			          0 # learning phase in TEST mode
-			]
-
-			print(get_gradients(inputs))
-			print(K.eval(critic_grad[0]))
-			print(actor_grad)
-			"""critic_grad = np.array(critic_grad)
-			actor_grad  = np.array(actor_grad)
-
 			grads = critic_grad * actor_grad
 			weights = self.actor_model.get_weights()
 			updated_weights = weights + self.learning_rate * grads
 			self.actor_model.set_weights(updated_weights)
-			"""
+			
 	def _train_critic(self, samples):
 		for sample in samples:
 			cur_state, action, reward, new_state, done = sample
@@ -154,8 +137,10 @@ class ActorCritic:
 		self._update_actor_target()
 		self._update_critic_target()
 
+sess = tf.Session(config=config)
+K.set_session(sess)
 env = gym.make("Pendulum-v0")
-actor_critic = ActorCritic(env)
+actor_critic = ActorCritic(env, sess)
 
 num_trials = 10000
 trial_len  = 500
