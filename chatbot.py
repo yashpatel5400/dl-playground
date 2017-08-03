@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 
 from keras.models import Sequential, Model
-from keras.layers import LSTM, Dense
+from keras.layers import LSTM, Dense, Dropout
 from keras.optimizers import Adam
 from keras.utils import np_utils
 
@@ -41,24 +41,29 @@ def keras_functional_model(vocab_size, look_back=1, learning_rate=0.001):
 		optimizer=adam)
 	return model
 
+def tf_model(batch_size=32):
+	words = tf.placeholder([batch_size, look_back])
+	LSTM = tf.contrib.rnn.BasicLSTMCell(256)
+	initial_state = tf.zeros([batch_size, look_back])
+
 # model/training parameters
 look_back  = 8
 batch_size = 32
 
 # preprocessing
-train_text = np.array(open("fab.txt").read().strip().split())
-unique_words = np.unique(train_text)
-num_unique   = len(unique_words)
-word_to_num = dict(zip(unique_words, range(num_unique)))
-num_to_word = dict(zip(range(num_unique), unique_words))
+train_text = np.array(list(open("fab.txt").read().strip()))
+unique_chars = np.unique(train_text)
+num_unique   = len(unique_chars)
+char_to_num = dict(zip(unique_chars, range(num_unique)))
+num_to_char = dict(zip(range(num_unique), unique_chars))
 
-train_text_embed = [word_to_num[word] for word in train_text]
+train_text_embed = [char_to_num[char] for char in train_text]
 training_set_X, training_set_Y = create_dataset(
 	train_text_embed, look_back=look_back)
 
 training_set_X = np.array(training_set_X)
+training_set_X = training_set_X / float(num_unique)
 training_set_X = training_set_X.reshape(training_set_X.shape[0], training_set_X.shape[1], 1)
-training_set_X = training_set_X / float(unique_words)
 
 training_set_Y = np.array(training_set_Y)
 training_set_Y = np_utils.to_categorical(training_set_Y)
@@ -67,8 +72,7 @@ training_set_Y = np_utils.to_categorical(training_set_Y)
 model = keras_sequential_model(num_unique, look_back=look_back)
 model.fit(training_set_X, training_set_Y, 
 	batch_size=batch_size, epochs=10)
-
-model.save("test.model")
+model.save("words.model")
 
 # seed input
 temperature  = 0.45
@@ -83,10 +87,10 @@ for _ in range(gen_text_len):
 	#if np.random.random() < temperature:
 	#	predicted_value = np.random.randint(num_unique)
 	#else: 
-	#	predicted_weights = model.predict(seed)
+	predicted_weights = model.predict(seed)
 	predicted_value = np.argmax(predicted_weights)
 	final_text.append(predicted_value)
-	seed = np.append(seed[:,1:,:], [[[ predicted_value / float(unique_words) ]]], axis=1)
+	seed = np.append(seed[:,1:,:], [[[ predicted_value ]]], axis=1)
 
 final_str = " ".join([num_to_word[i] for i in final_text])
 print(final_str)
