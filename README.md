@@ -14,6 +14,9 @@ Here are a list of small "toy projects" I'll be doing in this playground:
 - DeepBlue replica w/ DNN
 - Punctuation predictor
 
+FB chat
+Flappy bird
+
 OpenAI Environments
 - Cartpole
 - Mountain Car
@@ -25,3 +28,4 @@ Advanced:
 - Image captioning
 - Image question answering
 - GANs
+- GPU/C++
