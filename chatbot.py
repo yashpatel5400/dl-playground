@@ -92,5 +92,5 @@ for _ in range(gen_text_len):
 	final_text.append(predicted_value)
 	seed = np.append(seed[:,1:,:], [[[ predicted_value ]]], axis=1)
 
-final_str = " ".join([num_to_word[i] for i in final_text])
+final_str = " ".join([num_to_word[i * num_unique] for i in final_text])
 print(final_str)
