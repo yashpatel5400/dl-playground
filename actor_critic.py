@@ -142,11 +142,11 @@ class ActorCritic:
 
     def _update_actor_target(self):
         actor_model_weights  = self.actor_model.get_weights()
-        actor_target_weights = self.target_critic_model.get_weights()
+        actor_target_weights = self.target_actor_model.get_weights()
         
         for i in range(len(actor_target_weights)):
             actor_target_weights[i] = actor_model_weights[i]
-        self.target_critic_model.set_weights(actor_target_weights)
+        self.target_actor_model.set_weights(actor_target_weights)
 
     def _update_critic_target(self):
         critic_model_weights  = self.critic_model.get_weights()
