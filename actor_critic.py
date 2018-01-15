@@ -60,7 +60,7 @@ class ActorCritic:
             self.critic_action_input) # where we calcaulte de/dC for feeding above
         
         # Initialize for later gradient calculations
-        self.sess.run(tf.initialize_all_variables())
+        tf.global_variables_initializer()
 
     # ========================================================================= #
     #                              Model Definitions                            #
@@ -73,7 +73,7 @@ class ActorCritic:
         h3 = Dense(24, activation='relu')(h2)
         output = Dense(self.env.action_space.shape[0], activation='relu')(h3)
         
-        model = Model(input=state_input, output=output)
+        model = Model(inputs=[state_input], outputs=[output])
         adam  = Adam(lr=0.001)
         model.compile(loss="mse", optimizer=adam)
         return state_input, model
@@ -89,7 +89,7 @@ class ActorCritic:
         merged    = Add()([state_h2, action_h1])
         merged_h1 = Dense(24, activation='relu')(merged)
         output = Dense(1, activation='relu')(merged_h1)
-        model  = Model(input=[state_input,action_input], output=output)
+        model  = Model(inputs=[state_input,action_input], outputs=[output])
         
         adam  = Adam(lr=0.001)
         model.compile(loss="mse", optimizer=adam)
@@ -142,11 +142,11 @@ class ActorCritic:
 
     def _update_actor_target(self):
         actor_model_weights  = self.actor_model.get_weights()
-        actor_target_weights = self.target_critic_model.get_weights()
+        actor_target_weights = self.target_actor_model.get_weights()
         
         for i in range(len(actor_target_weights)):
             actor_target_weights[i] = actor_model_weights[i]
-        self.target_critic_model.set_weights(actor_target_weights)
+        self.target_actor_model.set_weights(actor_target_weights)
 
     def _update_critic_target(self):
         critic_model_weights  = self.critic_model.get_weights()
